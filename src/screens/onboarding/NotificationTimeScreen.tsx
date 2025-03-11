@@ -14,31 +14,68 @@ import { supabase } from '../../services/supabase';
 
 const NotificationTimeScreen = ({ route, navigation }: any) => {
   const { userId, deviceId } = route.params;
-  const [date, setDate] = useState(new Date());
-  const [show, setShow] = useState(Platform.OS === 'ios');
+  const [startTime, setStartTime] = useState(new Date());
+  const [endTime, setEndTime] = useState(new Date(new Date().setHours(startTime.getHours() + 1)));
+  const [showStart, setShowStart] = useState(false);
+  const [showEnd, setShowEnd] = useState(false);
 
-  const onChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || date;
-    setShow(Platform.OS === 'ios');
-    setDate(currentDate);
+  const onChangeStart = (event: any, selectedDate?: Date) => {
+    if (event.type === 'dismissed') {
+      setShowStart(false);
+      return;
+    }
+    
+    const currentDate = selectedDate || startTime;
+    setShowStart(false);
+    setStartTime(currentDate);
+
+    // Bitiş saatini başlangıç saatinden en az 1 saat sonraya ayarla
+    const minEndTime = new Date(currentDate);
+    minEndTime.setHours(currentDate.getHours() + 1);
+    if (endTime < minEndTime) {
+      setEndTime(minEndTime);
+    }
   };
 
-  const showTimePicker = () => {
-    setShow(true);
+  const onChangeEnd = (event: any, selectedDate?: Date) => {
+    if (event.type === 'dismissed') {
+      setShowEnd(false);
+      return;
+    }
+    
+    const currentDate = selectedDate || endTime;
+    setShowEnd(false);
+    setEndTime(currentDate);
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const handleSave = async () => {
     try {
-      const { userId, deviceId } = route.params;
-      
-      // Bildirim zamanını güncelle
+      // Başlangıç saati bitiş saatinden büyük olamaz
+      if (startTime >= endTime) {
+        Alert.alert('Uyarı', 'Başlangıç saati, bitiş saatinden önce olmalıdır.');
+        return;
+      }
+
+      // Minimum 1 saat fark olmalı
+      const hourDiff = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      if (hourDiff < 1) {
+        Alert.alert('Uyarı', 'Başlangıç ve bitiş saatleri arasında en az 1 saat fark olmalıdır.');
+        return;
+      }
+
+      // Bildirim zamanlarını güncelle
       const { error: updateError } = await supabase
         .from('anonymous_users')
         .update({ 
-          notification_time: date.toLocaleTimeString('tr-TR', {
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+          notification_time_start: formatTime(startTime),
+          notification_time_end: formatTime(endTime)
         })
         .eq('id', userId);
 
@@ -48,7 +85,7 @@ const NotificationTimeScreen = ({ route, navigation }: any) => {
       navigation.navigate('Main');
     } catch (error) {
       console.error('Error:', error);
-      Alert.alert('Hata', 'Bildirim zamanı kaydedilirken bir hata oluştu.');
+      Alert.alert('Hata', 'Bildirim zamanları kaydedilirken bir hata oluştu.');
     }
   };
 
@@ -56,32 +93,49 @@ const NotificationTimeScreen = ({ route, navigation }: any) => {
     <View style={styles.container}>
       <Text style={styles.title}>Bildirim Zamanı</Text>
       <Text style={styles.subtitle}>
-        Her gün motivasyon mesajınızı hangi saatte almak istersiniz?
+        Her gün motivasyon mesajınızı hangi saat aralığında almak istersiniz?
       </Text>
 
       <View style={styles.timeContainer}>
-        {Platform.OS === 'android' && (
+        <View style={styles.timeRow}>
+          <Text style={styles.timeLabel}>Başlangıç saati:</Text>
           <TouchableOpacity
             style={styles.timeButton}
-            onPress={showTimePicker}
+            onPress={() => setShowStart(true)}
           >
-            <Text style={styles.timeText}>
-              {date.toLocaleTimeString('tr-TR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
+            <Text style={styles.timeText}>{formatTime(startTime)}</Text>
           </TouchableOpacity>
-        )}
+        </View>
 
-        {show && (
+        <View style={[styles.timeRow, { marginTop: SIZES.large }]}>
+          <Text style={styles.timeLabel}>Bitiş saati:</Text>
+          <TouchableOpacity
+            style={styles.timeButton}
+            onPress={() => setShowEnd(true)}
+          >
+            <Text style={styles.timeText}>{formatTime(endTime)}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showStart && (
           <DateTimePicker
-            value={date}
+            value={startTime}
             mode="time"
             is24Hour={true}
-            display="spinner"
-            onChange={onChange}
-            style={styles.timePicker}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onChangeStart}
+            style={Platform.OS === 'ios' ? styles.timePicker : undefined}
+          />
+        )}
+
+        {showEnd && (
+          <DateTimePicker
+            value={endTime}
+            mode="time"
+            is24Hour={true}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onChangeEnd}
+            style={Platform.OS === 'ios' ? styles.timePicker : undefined}
           />
         )}
       </View>
@@ -127,20 +181,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: SIZES.large,
+  },
+  timeLabel: {
+    fontSize: SIZES.large,
+    color: COLORS.darkGray,
+    fontWeight: '500',
+  },
   timeButton: {
     backgroundColor: COLORS.lightGray,
-    padding: SIZES.large,
+    padding: SIZES.medium,
     borderRadius: SIZES.base,
-    minWidth: 150,
+    minWidth: 120,
     alignItems: 'center',
   },
   timeText: {
-    fontSize: SIZES.extraLarge,
+    fontSize: SIZES.large,
     color: COLORS.primary,
     fontWeight: 'bold',
   },
   timePicker: {
     width: 300,
+    height: 200,
   },
   bottomContainer: {
     marginTop: SIZES.extraLarge,

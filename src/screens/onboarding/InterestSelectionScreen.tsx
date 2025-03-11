@@ -175,7 +175,8 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
           .from('anonymous_users')
           .insert({
             device_id: deviceId,
-            notification_time: '09:00:00'
+            notification_time_start: '09:00:00',
+            notification_time_end: '10:00:00'
           })
           .select()
           .single();
