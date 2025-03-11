@@ -11,22 +11,69 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES } from '../../constants/theme';
 import { InterestArea } from '../../types/onboarding';
-import { createAnonymousUser, supabase } from '../../services/supabase';
+import { supabase } from '../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const InterestSelectionScreen = ({ navigation }: any) => {
+const InterestSelectionScreen = ({ navigation, route }: any) => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [interestAreas, setInterestAreas] = useState<InterestArea[]>([]);
   const [loading, setLoading] = useState(true);
+  const isFromProfile = route.params?.isFromProfile || false;
 
   useEffect(() => {
-    checkExistingUser();
-  }, []);
+    if (isFromProfile) {
+      loadUserInterests();
+    } else {
+      checkExistingUser();
+    }
+  }, [isFromProfile]);
+
+  const loadUserInterests = async () => {
+    try {
+      const deviceId = await AsyncStorage.getItem('deviceId');
+      
+      // Önce anonymous user'ı bul
+      const { data: anonymousUser, error: userError } = await supabase
+        .from('anonymous_users')
+        .select('id')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (userError) throw userError;
+
+      // Kullanıcının mevcut ilgi alanlarını çek
+      const { data: userInterests, error: interestsError } = await supabase
+        .from('user_interests')
+        .select('interest_id')
+        .eq('user_id', anonymousUser.id);
+
+      if (interestsError) throw interestsError;
+
+      // Seçili ilgi alanlarını güncelle
+      if (userInterests) {
+        setSelectedInterests(userInterests.map(ui => ui.interest_id));
+      }
+
+      // Tüm ilgi alanlarını yükle
+      await fetchInterestAreas();
+    } catch (error) {
+      console.error('İlgi alanları yüklenirken hata:', error);
+      Alert.alert('Hata', 'İlgi alanları yüklenirken bir hata oluştu.');
+    }
+  };
+
+  const generateDeviceId = async () => {
+    const existingDeviceId = await AsyncStorage.getItem('deviceId');
+    if (existingDeviceId) return existingDeviceId;
+    
+    const newDeviceId = `device_${Math.random().toString(36).slice(2)}`;
+    await AsyncStorage.setItem('deviceId', newDeviceId);
+    return newDeviceId;
+  };
 
   const checkExistingUser = async () => {
     try {
       const deviceId = await generateDeviceId();
-      console.log('Device ID kontrolü:', deviceId);
       
       // Mevcut device_id ile kullanıcı kontrolü
       const { data: existingUser, error } = await supabase
@@ -35,52 +82,41 @@ const InterestSelectionScreen = ({ navigation }: any) => {
         .eq('device_id', deviceId)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116: Kayıt bulunamadı hatası
+      if (error && error.code !== 'PGRST116') {
         console.error('Kullanıcı kontrolü sırasında hata:', error);
         throw error;
       }
 
       if (existingUser) {
-        console.log('Mevcut kullanıcı bulundu, ana sayfaya yönlendiriliyor:', existingUser);
-        navigation.replace('Home', {
-          userId: existingUser.id,
-          deviceId: deviceId
-        });
+        navigation.replace('MainTabs');
         return;
       }
 
-      console.log('Yeni kullanıcı, ilgi alanları yükleniyor...');
       await fetchInterestAreas();
     } catch (error) {
       console.error('Kullanıcı kontrolü sırasında hata:', error);
-      Alert.alert('Hata', 'Kullanıcı bilgileri kontrol edilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      Alert.alert('Hata', 'Kullanıcı bilgileri kontrol edilirken bir hata oluştu.');
       setLoading(false);
     }
   };
 
   const fetchInterestAreas = async () => {
     try {
-      console.log('İlgi alanları yükleniyor...');
       const { data, error } = await supabase
         .from('interest_areas')
         .select('*')
         .order('name');
 
-      if (error) {
-        console.error('İlgi alanları yüklenirken hata:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
-        console.log('İlgi alanları başarıyla yüklendi:', data.length, 'adet');
         setInterestAreas(data);
       } else {
-        console.log('İlgi alanları bulunamadı');
-        Alert.alert('Uyarı', 'İlgi alanları bulunamadı. Lütfen daha sonra tekrar deneyin.');
+        Alert.alert('Uyarı', 'İlgi alanları bulunamadı.');
       }
     } catch (error) {
       console.error('İlgi alanları yüklenirken hata:', error);
-      Alert.alert('Hata', 'İlgi alanları yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+      Alert.alert('Hata', 'İlgi alanları yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -103,98 +139,104 @@ const InterestSelectionScreen = ({ navigation }: any) => {
     }
 
     try {
+      setLoading(true);
       const deviceId = await generateDeviceId();
-      console.log('Device ID:', deviceId);
+      let userId;
 
-      // Önce mevcut device_id'ye sahip kullanıcıyı kontrol et
-      const { data: existingUser, error: fetchError } = await supabase
-        .from('anonymous_users')
-        .select()
-        .eq('device_id', deviceId)
-        .single();
+      if (isFromProfile) {
+        // 1. Adım: Mevcut kullanıcıyı bul
+        const { data: existingUser, error: userError } = await supabase
+          .from('anonymous_users')
+          .select('id')
+          .eq('device_id', deviceId)
+          .single();
 
-      let anonymousUser;
+        if (userError) {
+          console.error('Kullanıcı bulunurken hata:', userError);
+          throw userError;
+        }
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: Kayıt bulunamadı hatası
-        console.error('Kullanıcı sorgulama hatası:', fetchError);
-        throw fetchError;
+        if (!existingUser) {
+          throw new Error('Kullanıcı bulunamadı');
+        }
+
+        userId = existingUser.id;
+
+        // 2. Adım: Mevcut ilgi alanlarını sil
+        await supabase
+          .from('user_interests')
+          .delete()
+          .eq('user_id', userId);
+
+        console.log('Eski ilgi alanları silindi');
+      } else {
+        // Yeni kullanıcı için anonim kullanıcı oluştur
+        const { data: newUser, error: createError } = await supabase
+          .from('anonymous_users')
+          .insert({
+            device_id: deviceId,
+            notification_time: '09:00:00'
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Yeni kullanıcı oluşturulurken hata:', createError);
+          throw createError;
+        }
+
+        if (!newUser) {
+          throw new Error('Anonim kullanıcı oluşturulamadı');
+        }
+
+        userId = newUser.id;
       }
 
-      if (existingUser) {
-        console.log('Mevcut kullanıcı bulundu:', existingUser);
-        // Mevcut kullanıcı varsa direkt ana ekrana yönlendir
-        navigation.navigate('Home', {
-          userId: existingUser.id,
-          deviceId: deviceId
-        });
-        return;
-      }
-
-      // Yeni anonim kullanıcı oluştur
-      const { data: newUser, error: anonError } = await supabase
-        .from('anonymous_users')
-        .insert({
-          device_id: deviceId,
-          notification_time: '09:00:00'
-        })
-        .select()
-        .single();
-
-      if (anonError) {
-        console.error('Anonim kullanıcı oluşturma hatası:', anonError);
-        throw anonError;
-      }
-
-      if (!newUser) {
-        throw new Error('Anonim kullanıcı oluşturulamadı');
-      }
-
-      console.log('Yeni anonim kullanıcı oluşturuldu:', newUser);
-      anonymousUser = newUser;
-
-      // Seçilen ilgi alanlarını kaydet
-      const userInterests = selectedInterests.map(interestId => ({
-        user_id: anonymousUser.id,
+      // 3. Adım: Yeni seçimleri ekle
+      const newInterests = selectedInterests.map(interestId => ({
+        user_id: userId,
         interest_id: interestId,
-        is_anonymous: true
+        created_at: new Date().toISOString()
       }));
 
-      console.log('Kaydedilecek ilgi alanları:', userInterests);
-
-      const { error: interestsError } = await supabase
+      const { error: insertError } = await supabase
         .from('user_interests')
-        .insert(userInterests);
+        .insert(newInterests);
 
-      if (interestsError) {
-        console.error('İlgi alanları kaydetme hatası:', interestsError);
-        throw interestsError;
+      if (insertError) {
+        console.error('Yeni ilgi alanları eklenirken hata:', insertError);
+        throw insertError;
       }
 
-      console.log('İlgi alanları başarıyla kaydedildi');
+      console.log('Yeni ilgi alanları eklendi');
 
-      // Bildirim zamanı seçimine yönlendir
-      navigation.navigate('NotificationTime', {
-        userId: anonymousUser.id,
-        deviceId: deviceId
-      });
+      if (isFromProfile) {
+        // 4. Adım: Başarılı mesajı göster ve profil sayfasına dön
+        Alert.alert('Başarılı', 'İlgi alanlarınız güncellendi.', [
+          {
+            text: 'Tamam',
+            onPress: () => {
+              navigation.navigate('MainTabs', {
+                screen: 'Profile',
+                params: { refresh: Date.now() }
+              });
+            }
+          }
+        ]);
+      } else {
+        // Onboarding sürecinde NotificationTime ekranına geçiş
+        navigation.navigate('NotificationTime', {
+          userId: userId,
+          deviceId: deviceId
+        });
+      }
+
     } catch (error) {
-      console.error('Hata detayı:', error);
-      Alert.alert(
-        'Hata',
-        'Tercihleriniz kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.'
-      );
+      console.error('İşlem sırasında hata:', error);
+      Alert.alert('Hata', 'İşlem sırasında bir hata oluştu.');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  // Device ID oluşturma fonksiyonu
-  const generateDeviceId = async () => {
-    // Expo SecureStore veya AsyncStorage kullanarak device ID oluştur ve sakla
-    const existingDeviceId = await AsyncStorage.getItem('deviceId');
-    if (existingDeviceId) return existingDeviceId;
-    
-    const newDeviceId = `device_${Math.random().toString(36).slice(2)}`;
-    await AsyncStorage.setItem('deviceId', newDeviceId);
-    return newDeviceId;
   };
 
   return (
@@ -238,7 +280,9 @@ const InterestSelectionScreen = ({ navigation }: any) => {
             colors={[COLORS.primary, COLORS.secondary]}
             style={styles.gradient}
           >
-            <Text style={styles.buttonText}>Devam Et</Text>
+            <Text style={styles.buttonText}>
+              {isFromProfile ? 'Kaydet' : 'Devam Et'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -263,7 +307,7 @@ const styles = StyleSheet.create({
     fontSize: SIZES.medium,
     color: COLORS.gray,
     textAlign: 'center',
-    marginBottom: SIZES.extraLarge,
+    marginBottom: SIZES.extraLarge * 2,
   },
   scrollView: {
     flex: 1,
@@ -272,7 +316,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingBottom: SIZES.extraLarge,
+    paddingHorizontal: SIZES.base,
   },
   interestItem: {
     width: '48%',
@@ -283,25 +327,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectedInterest: {
-    backgroundColor: `${COLORS.primary}20`,
+    backgroundColor: COLORS.primary + '20',
     borderWidth: 2,
     borderColor: COLORS.primary,
   },
   interestIcon: {
-    fontSize: SIZES.extraLarge * 1.5,
+    fontSize: SIZES.extraLarge,
     marginBottom: SIZES.base,
   },
   interestName: {
     fontSize: SIZES.medium,
     fontWeight: 'bold',
     color: COLORS.darkGray,
-    marginBottom: SIZES.base,
     textAlign: 'center',
+    marginBottom: SIZES.base,
   },
   interestDescription: {
     fontSize: SIZES.small,
     color: COLORS.gray,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bottomContainer: {
     marginTop: SIZES.large,
@@ -321,11 +370,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 });
 
-export default InterestSelectionScreen; 
+export default InterestSelectionScreen;

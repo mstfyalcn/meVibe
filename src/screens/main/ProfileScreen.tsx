@@ -158,7 +158,10 @@ const ProfileScreen = ({ navigation }: any) => {
         ))}
         <TouchableOpacity 
           style={styles.editButton}
-          onPress={() => navigation.navigate('InterestSelection')}
+          onPress={() => navigation.navigate('EditInterests', { 
+            isFromProfile: true,
+            selectedInterests: userInterests.map(interest => interest.id)
+          })}
         >
           <Text style={styles.editButtonText}>İlgi Alanlarını Düzenle</Text>
         </TouchableOpacity>

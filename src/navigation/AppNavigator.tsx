@@ -15,6 +15,33 @@ import { COLORS } from '../constants/theme';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const MainStack = createNativeStackNavigator();
+const OnboardingStack = createNativeStackNavigator();
+
+const OnboardingNavigator = () => {
+  return (
+    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Screen name="OnboardingMain" component={OnboardingScreen} />
+      <OnboardingStack.Screen 
+        name="InterestSelection" 
+        component={InterestSelectionScreen}
+        options={{
+          headerShown: true,
+          headerTitle: 'İlgi Alanları',
+          headerBackTitle: 'Geri',
+        }}
+      />
+      <OnboardingStack.Screen 
+        name="NotificationTime" 
+        component={NotificationTimeScreen}
+        options={{
+          headerShown: true,
+          headerTitle: 'Bildirim Zamanı',
+          headerBackTitle: 'Geri',
+        }}
+      />
+    </OnboardingStack.Navigator>
+  );
+};
 
 const MainStackNavigator = () => {
   return (
@@ -25,7 +52,7 @@ const MainStackNavigator = () => {
         options={{ headerShown: false }}
       />
       <MainStack.Screen
-        name="InterestSelection"
+        name="EditInterests"
         component={InterestSelectionScreen}
         options={{
           headerShown: true,
@@ -81,8 +108,7 @@ const AppNavigator = () => {
         }}
       >
         <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="NotificationTime" component={NotificationTimeScreen} />
+        <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         <Stack.Screen name="Main" component={MainStackNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
