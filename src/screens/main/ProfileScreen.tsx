@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
   Alert,
   Switch,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES } from '../../constants/theme';
+import { COLORS } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { styles } from './ProfileScreen.styles';
 
 interface UserInterest {
   id: string;
@@ -156,9 +156,9 @@ const ProfileScreen = ({ navigation }: any) => {
             <Text style={styles.interestDescription}>{interest.description}</Text>
           </View>
         ))}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.editButton}
-          onPress={() => navigation.navigate('EditInterests', { 
+          onPress={() => navigation.navigate('EditInterests', {
             isFromProfile: true,
             selectedInterests: userInterests.map(interest => interest.id)
           })}
@@ -186,6 +186,11 @@ const ProfileScreen = ({ navigation }: any) => {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>İlgi Alanlarınız</Text>
+        {renderInterestsSection()}
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Hesap</Text>
         {renderAuthSection()}
       </View>
@@ -210,14 +215,10 @@ const ProfileScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>İlgi Alanlarınız</Text>
-        {renderInterestsSection()}
-      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ayarlar</Text>
-        
+
         <View style={styles.settingItem}>
           <Text style={styles.settingLabel}>Bildirimler</Text>
           <Switch
@@ -252,130 +253,5 @@ const ProfileScreen = ({ navigation }: any) => {
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  header: {
-    height: 200,
-  },
-  headerGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SIZES.extraLarge,
-  },
-  headerTitle: {
-    fontSize: SIZES.extraLarge,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginBottom: SIZES.base,
-  },
-  headerSubtitle: {
-    fontSize: SIZES.medium,
-    color: COLORS.white,
-    opacity: 0.8,
-  },
-  section: {
-    padding: SIZES.large,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  sectionTitle: {
-    fontSize: SIZES.large,
-    fontWeight: 'bold',
-    color: COLORS.darkGray,
-    marginBottom: SIZES.large,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    padding: SIZES.medium,
-    borderRadius: SIZES.base,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: COLORS.white,
-    fontSize: SIZES.medium,
-    fontWeight: 'bold',
-  },
-  premiumCard: {
-    margin: SIZES.large,
-    borderRadius: SIZES.base * 2,
-    overflow: 'hidden',
-  },
-  premiumGradient: {
-    padding: SIZES.large,
-  },
-  premiumTitle: {
-    fontSize: SIZES.large,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginBottom: SIZES.medium,
-  },
-  premiumDescription: {
-    fontSize: SIZES.medium,
-    color: COLORS.white,
-    lineHeight: 24,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SIZES.medium,
-  },
-  settingLabel: {
-    fontSize: SIZES.medium,
-    color: COLORS.darkGray,
-  },
-  linkButton: {
-    paddingVertical: SIZES.medium,
-  },
-  linkText: {
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
-  },
-  loadingContainer: {
-    padding: SIZES.medium,
-    alignItems: 'center',
-  },
-  interestItem: {
-    backgroundColor: COLORS.lightGray,
-    borderRadius: SIZES.base,
-    padding: SIZES.medium,
-    marginBottom: SIZES.medium,
-  },
-  interestHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.base,
-  },
-  interestIcon: {
-    fontSize: SIZES.large,
-    marginRight: SIZES.base,
-  },
-  interestName: {
-    fontSize: SIZES.medium,
-    fontWeight: 'bold',
-    color: COLORS.darkGray,
-  },
-  interestDescription: {
-    fontSize: SIZES.small,
-    color: COLORS.gray,
-  },
-  editButton: {
-    backgroundColor: COLORS.primary,
-    padding: SIZES.medium,
-    borderRadius: SIZES.base,
-    alignItems: 'center',
-    marginTop: SIZES.medium,
-  },
-  editButtonText: {
-    color: COLORS.white,
-    fontSize: SIZES.medium,
-    fontWeight: 'bold',
-  },
-});
 
 export default ProfileScreen; 
