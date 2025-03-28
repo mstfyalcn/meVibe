@@ -13,6 +13,7 @@ import { COLORS } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from './ProfileScreen.styles';
+import { scheduleMotivationNotification, cancelAllNotifications } from '../../services/notifications';
 
 interface UserInterest {
   id: string;
@@ -120,6 +121,20 @@ const ProfileScreen = ({ navigation }: any) => {
     navigation.navigate('Premium');
   };
 
+  const handleNotificationToggle = async (value: boolean) => {
+    try {
+      setNotificationsEnabled(value);
+      if (value) {
+        await scheduleMotivationNotification();
+      } else {
+        await cancelAllNotifications();
+      }
+    } catch (error) {
+      console.error('Bildirim ayarları değiştirilirken hata:', error);
+      Alert.alert('Hata', 'Bildirim ayarları değiştirilirken bir hata oluştu.');
+    }
+  };
+
   const renderAuthSection = () => {
     if (isAuthenticated) {
       return (
@@ -223,7 +238,7 @@ const ProfileScreen = ({ navigation }: any) => {
           <Text style={styles.settingLabel}>Bildirimler</Text>
           <Switch
             value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
+            onValueChange={handleNotificationToggle}
             trackColor={{ false: COLORS.gray, true: COLORS.primary }}
           />
         </View>

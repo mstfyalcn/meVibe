@@ -14,55 +14,6 @@ import { COLORS } from '../constants/theme';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-const MainStack = createNativeStackNavigator();
-const OnboardingStack = createNativeStackNavigator();
-
-const OnboardingNavigator = () => {
-  return (
-    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
-      <OnboardingStack.Screen name="OnboardingMain" component={OnboardingScreen} />
-      <OnboardingStack.Screen 
-        name="InterestSelection" 
-        component={InterestSelectionScreen}
-        options={{
-          headerShown: true,
-          headerTitle: 'İlgi Alanları',
-          headerBackTitle: 'Geri',
-        }}
-      />
-      <OnboardingStack.Screen 
-        name="NotificationTime" 
-        component={NotificationTimeScreen}
-        options={{
-          headerShown: true,
-          headerTitle: 'Bildirim Zamanı',
-          headerBackTitle: 'Geri',
-        }}
-      />
-    </OnboardingStack.Navigator>
-  );
-};
-
-const MainStackNavigator = () => {
-  return (
-    <MainStack.Navigator>
-      <MainStack.Screen
-        name="MainTabs"
-        component={MainTabs}
-        options={{ headerShown: false }}
-      />
-      <MainStack.Screen
-        name="EditInterests"
-        component={InterestSelectionScreen}
-        options={{
-          headerShown: true,
-          headerTitle: 'İlgi Alanları',
-          headerBackTitle: 'Geri',
-        }}
-      />
-    </MainStack.Navigator>
-  );
-};
 
 const MainTabs = () => {
   return (
@@ -101,15 +52,29 @@ const MainTabs = () => {
 const AppNavigator = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Splash"
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
-        <Stack.Screen name="Main" component={MainStackNavigator} />
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen 
+          name="InterestSelection" 
+          component={InterestSelectionScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'İlgi Alanları',
+            headerBackTitle: 'Geri',
+          }}
+        />
+        <Stack.Screen 
+          name="NotificationTime" 
+          component={NotificationTimeScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'Bildirim Zamanı',
+            headerBackTitle: 'Geri',
+          }}
+        />
+        <Stack.Screen name="Main" component={MainTabs} />
+        
       </Stack.Navigator>
     </NavigationContainer>
   );
