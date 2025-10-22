@@ -62,36 +62,28 @@ const AppNavigator = () => {
           name="InterestSelection" 
           component={InterestSelectionScreen}
           options={{
-            headerShown: true,
-            headerTitle: 'İlgi Alanları',
-            headerBackTitle: 'Geri',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="NotificationTime" 
           component={NotificationTimeScreen}
           options={{
-            headerShown: true,
-            headerTitle: 'Bildirim Zamanı',
-            headerBackTitle: 'Geri',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="NotificationCount" 
           component={NotificationCountScreen}
           options={{
-            headerShown: true,
-            headerTitle: 'Bildirim Sayısı',
-            headerBackTitle: 'Geri',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="UserName" 
           component={UserNameScreen}
           options={{
-            headerShown: true,
-            headerTitle: 'Tanışalım',
-            headerBackTitle: 'Geri',
+            headerShown: false,
           }}
         />
         <Stack.Screen name="Main" component={MainTabs} />

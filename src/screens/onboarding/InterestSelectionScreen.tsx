@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Animated,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES } from '../../constants/theme';
@@ -15,11 +18,15 @@ import { supabase } from '../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { scheduleMotivationNotification } from '../../services/notifications';
 
+const { width } = Dimensions.get('window');
+
 const InterestSelectionScreen = ({ navigation, route }: any) => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [interestAreas, setInterestAreas] = useState<InterestArea[]>([]);
   const [loading, setLoading] = useState(true);
   const isFromProfile = route.params?.isFromProfile || false;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
 
   useEffect(() => {
     if (isFromProfile) {
@@ -27,13 +34,18 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
     } else {
       checkExistingUser();
     }
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
   }, [isFromProfile]);
 
   const loadUserInterests = async () => {
     try {
       const deviceId = await AsyncStorage.getItem('deviceId');
       
-      // Önce anonymous user'ı bul
       const { data: anonymousUser, error: userError } = await supabase
         .from('anonymous_users')
         .select('id')
@@ -42,7 +54,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 
       if (userError) throw userError;
 
-      // Kullanıcının mevcut ilgi alanlarını çek
       const { data: userInterests, error: interestsError } = await supabase
         .from('user_interests')
         .select('interest_id')
@@ -50,12 +61,10 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 
       if (interestsError) throw interestsError;
 
-      // Seçili ilgi alanlarını güncelle
       if (userInterests) {
         setSelectedInterests(userInterests.map(ui => ui.interest_id));
       }
 
-      // Tüm ilgi alanlarını yükle
       await fetchInterestAreas();
     } catch (error) {
       console.error('İlgi alanları yüklenirken hata:', error);
@@ -76,7 +85,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
     try {
       const deviceId = await generateDeviceId();
       
-      // Mevcut device_id ile kullanıcı kontrolü
       const { data: existingUser, error } = await supabase
         .from('anonymous_users')
         .select()
@@ -118,6 +126,10 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 
       if (data) {
         setInterestAreas(data);
+        // Initialize scale animations for each interest
+        data.forEach(interest => {
+          scaleAnims[interest.id] = new Animated.Value(1);
+        });
       } else {
         Alert.alert('Uyarı', 'İlgi alanları bulunamadı.');
       }
@@ -130,18 +142,34 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
   };
 
   const toggleInterest = (id: string) => {
+    // Animate button press
+    const anim = scaleAnims[id] || new Animated.Value(1);
+    Animated.sequence([
+      Animated.timing(anim, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(anim, {
+        toValue: 1,
+        tension: 100,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     if (selectedInterests.includes(id)) {
       setSelectedInterests(selectedInterests.filter((item) => item !== id));
     } else if (selectedInterests.length < 3) {
       setSelectedInterests([...selectedInterests, id]);
     } else {
-      Alert.alert('Uyarı', 'En fazla 3 ilgi alanı seçebilirsiniz!');
+      Alert.alert('⚠️ Dikkat', 'En fazla 3 ilgi alanı seçebilirsiniz!', [{ text: 'Tamam' }]);
     }
   };
 
   const handleContinue = async () => {
     if (selectedInterests.length === 0) {
-      Alert.alert('Uyarı', 'Lütfen en az bir ilgi alanı seçin!');
+      Alert.alert('⚠️ Dikkat', 'Lütfen en az bir ilgi alanı seçin!', [{ text: 'Tamam' }]);
       return;
     }
 
@@ -151,7 +179,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
       let userId;
 
       if (isFromProfile) {
-        // 1. Adım: Mevcut kullanıcıyı bul
         const { data: existingUser, error: userError } = await supabase
           .from('anonymous_users')
           .select('id')
@@ -169,7 +196,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 
         userId = existingUser.id;
 
-        // 2. Adım: Mevcut ilgi alanlarını sil
         await supabase
           .from('user_interests')
           .delete()
@@ -177,7 +203,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 
         console.log('Eski ilgi alanları silindi');
       } else {
-        // Yeni kullanıcı için anonim kullanıcı oluştur
         const { data: newUser, error: createError } = await supabase
           .from('anonymous_users')
           .insert({
@@ -200,7 +225,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
         userId = newUser.id;
       }
 
-      // 3. Adım: Yeni seçimleri ekle
       const newInterests = selectedInterests.map(interestId => ({
         user_id: userId,
         interest_id: interestId,
@@ -219,7 +243,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
       console.log('Yeni ilgi alanları eklendi');
 
       if (isFromProfile) {
-        // 4. Adım: İlgi alanları değişti, bildirimleri yeniden planla
         const notificationSuccess = await scheduleMotivationNotification();
         
         if (notificationSuccess) {
@@ -256,7 +279,6 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
           );
         }
       } else {
-        // Onboarding sürecinde NotificationTime ekranına geçiş
         navigation.navigate('NotificationTime', {
           userId: userId,
           deviceId: deviceId
@@ -265,59 +287,134 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 
     } catch (error) {
       console.error('İşlem sırasında hata:', error);
-      Alert.alert('Hata', 'İşlem sırasında bir hata oluştu.');
+      Alert.alert('❌ Hata', 'İşlem sırasında bir hata oluştu.');
     } finally {
       setLoading(false);
     }
   };
 
+  const InterestCard = ({ interest }: { interest: InterestArea }) => {
+    const isSelected = selectedInterests.includes(interest.id);
+    const scale = scaleAnims[interest.id] || new Animated.Value(1);
+
+    return (
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <TouchableOpacity
+          style={[
+            styles.interestCard,
+            isSelected && styles.selectedCard,
+          ]}
+          onPress={() => toggleInterest(interest.id)}
+          activeOpacity={0.7}
+        >
+          {isSelected && (
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              style={StyleSheet.absoluteFillObject}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+          )}
+          <View style={styles.cardContent}>
+            <View style={styles.iconContainer}>
+              <Text style={styles.interestIcon}>{interest.icon}</Text>
+              {isSelected && (
+                <View style={styles.checkBadge}>
+                  <Text style={styles.checkIcon}>✓</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.interestName, isSelected && styles.selectedText]}>
+              {interest.name}
+            </Text>
+            <Text style={[styles.interestDescription, isSelected && styles.selectedDescText]}>
+              {interest.description}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>İlgi Alanlarınızı Seçin</Text>
-      <Text style={styles.subtitle}>
-        Size en uygun motivasyon içeriklerini sunabilmemiz için en fazla 3 ilgi alanı seçin
-      </Text>
+      <StatusBar barStyle="light-content" />
+      
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      ) : (
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.interestsContainer}>
-            {interestAreas.map((interest) => (
-              <TouchableOpacity
-                key={interest.id}
+      {/* Decorative Elements */}
+      <View style={styles.decorCircle1} />
+      <View style={styles.decorCircle2} />
+
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.emoji}>🎯</Text>
+          <Text style={styles.title}>İlgi Alanlarınızı Seçin</Text>
+          <Text style={styles.subtitle}>
+            Size özel içerikler sunabilmemiz için en fazla 3 ilgi alanı seçin
+          </Text>
+          
+          {/* Selection Counter */}
+          <View style={styles.counterContainer}>
+            {[0, 1, 2].map((index) => (
+              <View
+                key={index}
                 style={[
-                  styles.interestItem,
-                  selectedInterests.includes(interest.id) && styles.selectedInterest,
+                  styles.counterDot,
+                  index < selectedInterests.length && styles.counterDotActive,
                 ]}
-                onPress={() => toggleInterest(interest.id)}
-              >
-                <Text style={styles.interestIcon}>{interest.icon}</Text>
-                <Text style={styles.interestName}>{interest.name}</Text>
-                <Text style={styles.interestDescription}>{interest.description}</Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
-        </ScrollView>
-      )}
+          <Text style={styles.counterText}>
+            {selectedInterests.length} / 3 seçildi
+          </Text>
+        </View>
 
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleContinue}
-        >
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
-            style={styles.gradient}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Yükleniyor...</Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.buttonText}>
-              {isFromProfile ? 'Kaydet' : 'Devam Et'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            <View style={styles.interestsGrid}>
+              {interestAreas.map((interest) => (
+                <InterestCard key={interest.id} interest={interest} />
+              ))}
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Continue Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              selectedInterests.length === 0 && styles.buttonDisabled,
+            ]}
+            onPress={handleContinue}
+            disabled={selectedInterests.length === 0 || loading}
+            activeOpacity={0.8}
+          >
+            <View style={styles.buttonInner}>
+              <Text style={styles.buttonText}>
+                {isFromProfile ? '✓ Kaydet' : `Devam Et (${selectedInterests.length}/3) →`}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
     </View>
   );
 };
@@ -325,82 +422,210 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    padding: SIZES.large,
+    backgroundColor: '#667eea',
+  },
+  content: {
+    flex: 1,
+  },
+  decorCircle1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    top: -50,
+    left: -50,
+  },
+  decorCircle2: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    bottom: 100,
+    right: -40,
+  },
+  header: {
+    paddingTop: SIZES.extraLarge * 2,
+    paddingHorizontal: SIZES.extraLarge,
+    paddingBottom: SIZES.large,
+    alignItems: 'center',
+  },
+  emoji: {
+    fontSize: 64,
+    marginBottom: SIZES.medium,
   },
   title: {
-    fontSize: SIZES.extraLarge,
+    fontSize: SIZES.extraLarge * 1.3,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: '#fff',
     textAlign: 'center',
     marginBottom: SIZES.base,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: SIZES.medium,
-    color: COLORS.gray,
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
-    marginBottom: SIZES.extraLarge * 2,
+    lineHeight: 22,
+    paddingHorizontal: SIZES.base,
+    marginBottom: SIZES.large,
+  },
+  counterContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: SIZES.base,
+  },
+  counterDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  counterDotActive: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  counterText: {
+    fontSize: SIZES.small,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
-  interestsContainer: {
+  scrollContent: {
+    paddingHorizontal: SIZES.large,
+    paddingBottom: SIZES.large,
+  },
+  interestsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: SIZES.base,
+    gap: SIZES.medium,
   },
-  interestItem: {
-    width: '48%',
-    backgroundColor: COLORS.lightGray,
-    borderRadius: SIZES.base,
-    padding: SIZES.medium,
-    marginBottom: SIZES.medium,
+  interestCard: {
+    width: (width - SIZES.large * 2 - SIZES.medium) / 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: SIZES.large,
+    padding: SIZES.large,
     alignItems: 'center',
-  },
-  selectedInterest: {
-    backgroundColor: COLORS.primary + '20',
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  selectedCard: {
+    borderColor: '#fff',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardContent: {
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  iconContainer: {
+    position: 'relative',
+    marginBottom: SIZES.medium,
   },
   interestIcon: {
-    fontSize: SIZES.extraLarge,
-    marginBottom: SIZES.base,
+    fontSize: 48,
+    textAlign: 'center',
+  },
+  checkBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  checkIcon: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#667eea',
   },
   interestName: {
     fontSize: SIZES.medium,
     fontWeight: 'bold',
     color: COLORS.darkGray,
     textAlign: 'center',
-    marginBottom: SIZES.base,
+    marginBottom: SIZES.base / 2,
+  },
+  selectedText: {
+    color: '#fff',
   },
   interestDescription: {
     fontSize: SIZES.small,
     color: COLORS.gray,
     textAlign: 'center',
+    lineHeight: 18,
+  },
+  selectedDescText: {
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  bottomContainer: {
-    marginTop: SIZES.large,
+  loadingText: {
+    marginTop: SIZES.medium,
+    fontSize: SIZES.medium,
+    color: '#fff',
+    fontWeight: '600',
   },
-  button: {
-    overflow: 'hidden',
-    borderRadius: SIZES.base * 2,
-  },
-  gradient: {
-    paddingVertical: SIZES.medium,
+  buttonContainer: {
     paddingHorizontal: SIZES.extraLarge,
-    borderRadius: SIZES.base * 2,
+    paddingBottom: SIZES.extraLarge,
+    paddingTop: SIZES.medium,
+  },
+  continueButton: {
+    backgroundColor: '#fff',
+    borderRadius: SIZES.base * 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonInner: {
+    paddingVertical: SIZES.large,
+    paddingHorizontal: SIZES.extraLarge,
+    alignItems: 'center',
   },
   buttonText: {
-    color: COLORS.white,
     fontSize: SIZES.large,
-    textAlign: 'center',
     fontWeight: 'bold',
+    color: '#667eea',
+    textAlign: 'center',
   },
 });
 

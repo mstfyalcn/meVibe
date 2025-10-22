@@ -120,15 +120,18 @@ const divideTimeRange = (
     const baseTime = startTime.getTime() + (intervalMs * i);
     const time = new Date(baseTime);
     
-    // İlk bildirime akıllı gecikme ekle
-    if (i === 0) {
-      time.setMinutes(time.getMinutes() + initialDelay);
-      console.log(`📅 Bildirim ${i + 1} zamanı: ${time.toLocaleTimeString('tr-TR')} (+${initialDelay} dk gecikme)`);
-    } else {
-      // Diğer bildirimlere varyasyon ekle (ama zaman aralığını aşmasın)
+    // Sadece diğer bildirimlere varyasyon ekle (ilk bildirime değil)
+    if (i > 0) {
+      // Varyasyon ekle ama bir sonraki bildirimle çakışmasın
       const variance = Math.floor(Math.random() * (maxVariance * 2 + 1)) - maxVariance;
-      time.setMinutes(time.getMinutes() + variance);
-      console.log(`📅 Bildirim ${i + 1} zamanı: ${time.toLocaleTimeString('tr-TR')} (${variance >= 0 ? '+' : ''}${variance} dk varyasyon)`);
+      const adjustedVariance = Math.max(
+        -maxVariance, 
+        Math.min(maxVariance, variance)
+      );
+      time.setMinutes(time.getMinutes() + adjustedVariance);
+      console.log(`📅 Bildirim ${i + 1} zamanı: ${time.toLocaleTimeString('tr-TR')} (${adjustedVariance >= 0 ? '+' : ''}${adjustedVariance} dk varyasyon)`);
+    } else {
+      console.log(`📅 Bildirim ${i + 1} zamanı: ${time.toLocaleTimeString('tr-TR')} (ilk bildirim)`);
     }
     
     times.push(time);
@@ -240,17 +243,36 @@ export const scheduleMotivationNotification = async () => {
     console.log('⏰ Başlangıç saati ayarlandı:', startTime.toLocaleString('tr-TR'));
     console.log('⏰ Bitiş saati ayarlandı:', endTime.toLocaleString('tr-TR'));
 
-    // Eğer zaman aralığı geçmişte kaldıysa, yarına ertele
-    if (endTime < now) {
-      console.log('⚠️ Zaman aralığı geçmişte, yarına erteleniyor...');
+    // Zaman aralığını kontrol et
+    const minRangeNeeded = notificationCount * 15 * 60 * 1000; // Her bildirim için en az 15 dakika
+
+    // Eğer bitiş zamanı geçmişte veya başlangıç geçmiş ve yeterli alan yoksa, yarına kaydır
+    if (endTime <= now) {
+      console.log('⚠️ Bitiş zamanı geçmiş, yarına erteleniyor...');
       startTime.setDate(startTime.getDate() + 1);
       endTime.setDate(endTime.getDate() + 1);
       console.log('✅ Yeni başlangıç:', startTime.toLocaleString('tr-TR'));
       console.log('✅ Yeni bitiş:', endTime.toLocaleString('tr-TR'));
-    } else if (startTime < now) {
-      console.log('⚠️ Başlangıç saati geçmiş, şu andan itibaren planlanacak...');
-      startTime = new Date(now); // Şu andan başla (ilk bildirime +5dk eklenecek)
-      console.log('✅ Yeni başlangıç:', startTime.toLocaleString('tr-TR'));
+    } else if (startTime <= now) {
+      // Başlangıç geçmiş, kalan süreyi kontrol et
+      const remainingTime = endTime.getTime() - now.getTime();
+      const remainingMinutes = remainingTime / (1000 * 60);
+      
+      console.log(`⏰ Başlangıç zamanı geçmiş, kalan süre: ${Math.round(remainingMinutes)} dakika`);
+      
+      // Eğer kalan süre yeterli değilse (bildirim başına < 15 dakika), yarına kaydır
+      if (remainingTime < minRangeNeeded) {
+        console.log(`⚠️ Kalan süre ${notificationCount} bildirim için yetersiz, yarına erteleniyor...`);
+        startTime.setDate(startTime.getDate() + 1);
+        endTime.setDate(endTime.getDate() + 1);
+        console.log('✅ Yeni başlangıç:', startTime.toLocaleString('tr-TR'));
+        console.log('✅ Yeni bitiş:', endTime.toLocaleString('tr-TR'));
+      } else {
+        // Kalan süre yeterliyse, şu andan başla
+        console.log('✅ Kalan süre yeterli, şu andan itibaren planlanacak...');
+        startTime = new Date(now.getTime() + (5 * 60 * 1000)); // 5 dakika sonraya ayarla
+        console.log('✅ Yeni başlangıç (5 dk sonra):', startTime.toLocaleString('tr-TR'));
+      }
     }
 
     // Zamanları eşit aralıklarla böl

@@ -3,6 +3,8 @@ export interface OnboardingItem {
   title: string;
   description: string;
   image: any;
+  emoji?: string;
+  gradient?: string[];
 }
 
 export interface InterestArea {
