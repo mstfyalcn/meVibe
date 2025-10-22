@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, SIZES } from '../../constants/theme';
+import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
 
 export const styles = StyleSheet.create({
   safeArea: {
@@ -11,9 +11,10 @@ export const styles = StyleSheet.create({
   },
   header: {
     padding: SIZES.large,
+    paddingTop: SIZES.extraLarge,
   },
   greeting: {
-    fontSize: SIZES.extraLarge,
+    fontSize: SIZES.extraLarge * 1.3,
     fontWeight: 'bold',
     color: COLORS.primary,
   },
@@ -22,41 +23,220 @@ export const styles = StyleSheet.create({
     color: COLORS.gray,
     marginTop: SIZES.base,
   },
-  quoteContainer: {
-    margin: SIZES.large,
+  
+  // Streak Card
+  streakCard: {
+    marginHorizontal: SIZES.large,
+    marginBottom: SIZES.medium,
     borderRadius: SIZES.base * 2,
     overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  streakGradient: {
+    padding: SIZES.large,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  streakEmoji: {
+    fontSize: 40,
+    marginRight: SIZES.medium,
+  },
+  streakNumber: {
+    fontSize: SIZES.large,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  streakText: {
+    fontSize: SIZES.medium,
+    color: COLORS.white,
+    opacity: 0.9,
+  },
+  
+  // Quote Cards
+  quoteContainer: {
+    marginHorizontal: SIZES.large,
+    marginBottom: SIZES.medium,
+    borderRadius: SIZES.base * 2,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
   },
   quoteGradient: {
+    padding: SIZES.large,
+  },
+  mainQuoteGradient: {
     padding: SIZES.extraLarge,
   },
-  quoteText: {
-    fontSize: SIZES.large,
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: SIZES.medium,
+    paddingVertical: SIZES.base,
+    borderRadius: SIZES.base * 2,
+    marginBottom: SIZES.medium,
+  },
+  categoryIcon: {
+    fontSize: SIZES.medium,
+    marginRight: SIZES.base / 2,
+  },
+  categoryName: {
+    fontSize: SIZES.small,
     color: COLORS.white,
-    lineHeight: SIZES.large * 1.5,
+    fontWeight: 'bold',
+  },
+  quoteText: {
+    fontSize: SIZES.medium,
+    color: COLORS.white,
+    lineHeight: SIZES.medium * 1.6,
     fontStyle: 'italic',
+  },
+  mainQuoteText: {
+    fontSize: SIZES.large,
+    lineHeight: SIZES.large * 1.6,
   },
   quoteAuthor: {
     fontSize: SIZES.medium,
     color: COLORS.white,
     marginTop: SIZES.large,
     textAlign: 'right',
+    opacity: 0.9,
   },
-  loadingContainer: {
-    margin: SIZES.large,
-    padding: SIZES.extraLarge,
+  
+  // Action Buttons
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: SIZES.large,
+    gap: SIZES.medium,
+  },
+  actionButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: SIZES.large,
+    paddingVertical: SIZES.medium,
+    borderRadius: SIZES.base * 2,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    fontSize: 24,
+  },
+  
+  // Stats Card
+  statsCard: {
+    marginHorizontal: SIZES.large,
+    marginVertical: SIZES.medium,
     backgroundColor: COLORS.lightGray,
     borderRadius: SIZES.base * 2,
+    padding: SIZES.large,
+  },
+  statsTitle: {
+    fontSize: SIZES.large,
+    fontWeight: 'bold',
+    color: COLORS.darkGray,
+    marginBottom: SIZES.medium,
+    textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
     alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: SIZES.extraLarge * 1.5,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  statLabel: {
+    fontSize: SIZES.small,
+    color: COLORS.gray,
+    marginTop: SIZES.base / 2,
+  },
+  
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
   },
   loadingText: {
     fontSize: SIZES.medium,
     color: COLORS.gray,
+    marginTop: SIZES.medium,
   },
-  statsContainer: {
+  refreshHint: {
+    textAlign: 'center',
+    fontSize: SIZES.small,
+    color: COLORS.gray,
+    marginVertical: SIZES.extraLarge,
+    opacity: 0.6,
+  },
+  
+  // Daily Theme
+  themeCard: {
+    marginHorizontal: SIZES.large,
+    marginBottom: SIZES.medium,
+    borderRadius: SIZES.base * 2,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  themeGradient: {
+    padding: SIZES.large,
+    alignItems: 'center',
+  },
+  themeEmoji: {
+    fontSize: 48,
+    marginBottom: SIZES.base,
+  },
+  themeTitle: {
+    fontSize: SIZES.small,
+    color: COLORS.white,
+    opacity: 0.9,
+    marginBottom: SIZES.base / 2,
+  },
+  themeSubtitle: {
+    fontSize: SIZES.large,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  
+  // Category Filter
+  categoryFilter: {
+    marginHorizontal: SIZES.large,
+    marginBottom: SIZES.medium,
+  },
+  categoryFilterTitle: {
+    fontSize: SIZES.medium,
+    fontWeight: 'bold',
+    color: COLORS.darkGray,
+    marginBottom: SIZES.medium,
+  },
+  categoryScroll: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: SIZES.large,
+  },
+  categoryChip: {
+    backgroundColor: COLORS.lightGray,
+    paddingHorizontal: SIZES.large,
+    paddingVertical: SIZES.medium,
+    borderRadius: SIZES.base * 3,
+    marginRight: SIZES.base,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  categoryChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  categoryChipText: {
+    fontSize: SIZES.medium,
+    color: COLORS.darkGray,
+    fontWeight: '500',
+  },
+  categoryChipTextActive: {
+    color: COLORS.white,
+    fontWeight: 'bold',
   },
   statCard: {
     backgroundColor: COLORS.lightGray,

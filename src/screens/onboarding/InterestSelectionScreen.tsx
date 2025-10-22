@@ -13,6 +13,7 @@ import { COLORS, SIZES } from '../../constants/theme';
 import { InterestArea } from '../../types/onboarding';
 import { supabase } from '../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scheduleMotivationNotification } from '../../services/notifications';
 
 const InterestSelectionScreen = ({ navigation, route }: any) => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -218,18 +219,42 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
       console.log('Yeni ilgi alanları eklendi');
 
       if (isFromProfile) {
-        // 4. Adım: Başarılı mesajı göster ve profil sayfasına dön
-        Alert.alert('Başarılı', 'İlgi alanlarınız güncellendi.', [
-          {
-            text: 'Tamam',
-            onPress: () => {
-              navigation.navigate('Main', {
-                screen: 'Profile',
-                params: { refresh: Date.now() }
-              });
-            }
-          }
-        ]);
+        // 4. Adım: İlgi alanları değişti, bildirimleri yeniden planla
+        const notificationSuccess = await scheduleMotivationNotification();
+        
+        if (notificationSuccess) {
+          Alert.alert(
+            '✅ Başarılı', 
+            'İlgi alanlarınız güncellendi ve bildirimler yeniden planlandı!', 
+            [
+              {
+                text: 'Tamam',
+                onPress: () => {
+                  navigation.navigate('Main', {
+                    screen: 'Profile',
+                    params: { refresh: Date.now() }
+                  });
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            '⚠️ Uyarı', 
+            'İlgi alanlarınız güncellendi ancak bildirimler planlanamadı. Profil sayfasından "Bildirimleri Yeniden Planla" butonunu kullanabilirsiniz.', 
+            [
+              {
+                text: 'Tamam',
+                onPress: () => {
+                  navigation.navigate('Main', {
+                    screen: 'Profile',
+                    params: { refresh: Date.now() }
+                  });
+                }
+              }
+            ]
+          );
+        }
       } else {
         // Onboarding sürecinde NotificationTime ekranına geçiş
         navigation.navigate('NotificationTime', {

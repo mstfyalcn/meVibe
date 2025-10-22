@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scheduleMotivationNotification } from '../../services/notifications';
 
 const NotificationTimeScreen = ({ route, navigation }: any) => {
   const { userId, deviceId, isFromProfile } = route.params;
@@ -142,12 +143,32 @@ const NotificationTimeScreen = ({ route, navigation }: any) => {
       if (updateError) throw updateError;
 
       if (isFromProfile) {
-        Alert.alert('Başarılı', 'Bildirim zamanları güncellendi.', [
-          {
-            text: 'Tamam',
-            onPress: () => navigation.goBack()
-          }
-        ]);
+        // Profil sayfasından geliyorsa bildirimleri yeniden planla
+        const notificationSuccess = await scheduleMotivationNotification();
+        
+        if (notificationSuccess) {
+          Alert.alert(
+            '✅ Başarılı', 
+            'Bildirim zamanları güncellendi ve bildirimler yeniden planlandı!', 
+            [
+              {
+                text: 'Tamam',
+                onPress: () => navigation.goBack()
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            '⚠️ Uyarı', 
+            'Bildirim zamanları güncellendi ancak bildirimler planlanamadı. Profil sayfasından "Bildirimleri Yeniden Planla" butonunu kullanabilirsiniz.', 
+            [
+              {
+                text: 'Tamam',
+                onPress: () => navigation.goBack()
+              }
+            ]
+          );
+        }
       } else {
         // Onboarding akışı - NotificationCount ekranına git
         navigation.navigate('NotificationCount', {
