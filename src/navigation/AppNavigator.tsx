@@ -8,8 +8,11 @@ import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import InterestSelectionScreen from '../screens/onboarding/InterestSelectionScreen';
 import NotificationTimeScreen from '../screens/onboarding/NotificationTimeScreen';
+import NotificationCountScreen from '../screens/onboarding/NotificationCountScreen';
+import UserNameScreen from '../screens/onboarding/UserNameScreen';
 import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
+import AuthScreen from '../screens/auth/AuthScreen';
 import { COLORS } from '../constants/theme';
 
 const Stack = createNativeStackNavigator();
@@ -73,8 +76,50 @@ const AppNavigator = () => {
             headerBackTitle: 'Geri',
           }}
         />
+        <Stack.Screen 
+          name="NotificationCount" 
+          component={NotificationCountScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'Bildirim Sayısı',
+            headerBackTitle: 'Geri',
+          }}
+        />
+        <Stack.Screen 
+          name="UserName" 
+          component={UserNameScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'Tanışalım',
+            headerBackTitle: 'Geri',
+          }}
+        />
         <Stack.Screen name="Main" component={MainTabs} />
-        
+        <Stack.Screen 
+          name="EditInterests" 
+          component={InterestSelectionScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'İlgi Alanlarını Düzenle',
+            headerBackTitle: 'Geri',
+          }}
+        />
+        <Stack.Screen 
+          name="EditNotificationTime" 
+          component={NotificationTimeScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'Bildirim Saatini Düzenle',
+            headerBackTitle: 'Geri',
+          }}
+        />
+        <Stack.Screen 
+          name="Auth" 
+          component={AuthScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

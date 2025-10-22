@@ -44,7 +44,7 @@ const HomeScreen = () => {
       const interestIds = userInterests?.map(ui => ui.interest_id) || [];
 
       // İlgi alanlarına göre rastgele bir motivasyon sözü al
-      const { data: quote } = await supabase
+      const { data: quotes } = await supabase
         .from('motivation_quotes')
         .select(`
           content,
@@ -54,11 +54,13 @@ const HomeScreen = () => {
             icon
           )
         `)
-        .in('interest_area_id', interestIds)
-        .limit(1)
-        .single();
+        .in('interest_area_id', interestIds);
 
-      setDailyQuote(quote);
+      // JavaScript ile rastgele seç
+      if (quotes && quotes.length > 0) {
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        setDailyQuote(randomQuote);
+      }
     } catch (error) {
       console.error('Error fetching quote:', error);
     }

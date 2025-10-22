@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,18 +6,61 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NotificationTimeScreen = ({ route, navigation }: any) => {
-  const { userId, deviceId } = route.params;
+  const { userId, deviceId, isFromProfile } = route.params;
   const [startTime, setStartTime] = useState(new Date());
   const [endTime, setEndTime] = useState(new Date(new Date().setHours(startTime.getHours() + 1)));
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isFromProfile) {
+      loadCurrentTimes();
+    } else {
+      setLoading(false);
+    }
+  }, [isFromProfile]);
+
+  const loadCurrentTimes = async () => {
+    try {
+      const deviceId = await AsyncStorage.getItem('deviceId');
+      
+      const { data: user, error } = await supabase
+        .from('anonymous_users')
+        .select('notification_time_start, notification_time_end')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (error) throw error;
+
+      if (user) {
+        const [startHour, startMinute] = user.notification_time_start.split(':');
+        const [endHour, endMinute] = user.notification_time_end.split(':');
+
+        const newStartTime = new Date();
+        newStartTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
+        setStartTime(newStartTime);
+
+        const newEndTime = new Date();
+        newEndTime.setHours(parseInt(endHour), parseInt(endMinute), 0);
+        setEndTime(newEndTime);
+      }
+    } catch (error) {
+      console.error('Mevcut bildirim zamanları yüklenirken hata:', error);
+      Alert.alert('Hata', 'Bildirim zamanları yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onChangeStart = (event: any, selectedDate?: Date) => {
     if (event.type === 'dismissed') {
@@ -57,102 +100,143 @@ const NotificationTimeScreen = ({ route, navigation }: any) => {
 
   const handleSave = async () => {
     try {
-      // Başlangıç saati bitiş saatinden büyük olamaz
-      if (startTime >= endTime) {
-        Alert.alert('Uyarı', 'Başlangıç saati, bitiş saatinden önce olmalıdır.');
-        return;
+      setLoading(true);
+      const deviceId = await AsyncStorage.getItem('deviceId');
+
+      if (!deviceId) {
+        throw new Error('Device ID bulunamadı');
       }
 
-      // Minimum 1 saat fark olmalı
-      const hourDiff = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-      if (hourDiff < 1) {
-        Alert.alert('Uyarı', 'Başlangıç ve bitiş saatleri arasında en az 1 saat fark olmalıdır.');
-        return;
+      // Kullanıcıyı bul veya oluştur
+      const { data: user, error: userError } = await supabase
+        .from('anonymous_users')
+        .select('id')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (userError && userError.code !== 'PGRST116') {
+        throw userError;
       }
+
+      const startTimeString = startTime.toLocaleTimeString('tr-TR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      const endTimeString = endTime.toLocaleTimeString('tr-TR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
 
       // Bildirim zamanlarını güncelle
       const { error: updateError } = await supabase
         .from('anonymous_users')
-        .update({ 
-          notification_time_start: formatTime(startTime),
-          notification_time_end: formatTime(endTime)
+        .update({
+          notification_time_start: startTimeString,
+          notification_time_end: endTimeString
         })
-        .eq('id', userId);
+        .eq('device_id', deviceId);
 
       if (updateError) throw updateError;
 
-      // Ana sayfaya yönlendir
-      navigation.navigate('Main');
+      if (isFromProfile) {
+        Alert.alert('Başarılı', 'Bildirim zamanları güncellendi.', [
+          {
+            text: 'Tamam',
+            onPress: () => navigation.goBack()
+          }
+        ]);
+      } else {
+        // Onboarding akışı - NotificationCount ekranına git
+        navigation.navigate('NotificationCount', {
+          userId: userId,
+          deviceId: deviceId
+        });
+      }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Bildirim zamanları kaydedilirken hata:', error);
       Alert.alert('Hata', 'Bildirim zamanları kaydedilirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bildirim Zamanı</Text>
-      <Text style={styles.subtitle}>
-        Her gün motivasyon mesajınızı hangi saat aralığında almak istersiniz?
-      </Text>
-
-      <View style={styles.timeContainer}>
-        <View style={styles.timeRow}>
-          <Text style={styles.timeLabel}>Başlangıç saati:</Text>
-          <TouchableOpacity
-            style={styles.timeButton}
-            onPress={() => setShowStart(true)}
-          >
-            <Text style={styles.timeText}>{formatTime(startTime)}</Text>
-          </TouchableOpacity>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
+      ) : (
+        <>
+          <Text style={styles.title}>Bildirim Zamanı</Text>
+          <Text style={styles.subtitle}>
+            Her gün motivasyon mesajınızı hangi saat aralığında almak istersiniz?
+          </Text>
 
-        <View style={[styles.timeRow, { marginTop: SIZES.large }]}>
-          <Text style={styles.timeLabel}>Bitiş saati:</Text>
-          <TouchableOpacity
-            style={styles.timeButton}
-            onPress={() => setShowEnd(true)}
-          >
-            <Text style={styles.timeText}>{formatTime(endTime)}</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.timeContainer}>
+            <View style={styles.timeRow}>
+              <Text style={styles.timeLabel}>Başlangıç saati:</Text>
+              <TouchableOpacity
+                style={styles.timeButton}
+                onPress={() => setShowStart(true)}
+              >
+                <Text style={styles.timeText}>{formatTime(startTime)}</Text>
+              </TouchableOpacity>
+            </View>
 
-        {showStart && (
-          <DateTimePicker
-            value={startTime}
-            mode="time"
-            is24Hour={true}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onChangeStart}
-            style={Platform.OS === 'ios' ? styles.timePicker : undefined}
-          />
-        )}
+            <View style={[styles.timeRow, { marginTop: SIZES.large }]}>
+              <Text style={styles.timeLabel}>Bitiş saati:</Text>
+              <TouchableOpacity
+                style={styles.timeButton}
+                onPress={() => setShowEnd(true)}
+              >
+                <Text style={styles.timeText}>{formatTime(endTime)}</Text>
+              </TouchableOpacity>
+            </View>
 
-        {showEnd && (
-          <DateTimePicker
-            value={endTime}
-            mode="time"
-            is24Hour={true}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onChangeEnd}
-            style={Platform.OS === 'ios' ? styles.timePicker : undefined}
-          />
-        )}
-      </View>
+            {showStart && (
+              <DateTimePicker
+                value={startTime}
+                mode="time"
+                is24Hour={true}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onChangeStart}
+                style={Platform.OS === 'ios' ? styles.timePicker : undefined}
+              />
+            )}
 
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleSave}
-        >
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary]}
-            style={styles.gradient}
-          >
-            <Text style={styles.buttonText}>Kaydet ve Başla</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            {showEnd && (
+              <DateTimePicker
+                value={endTime}
+                mode="time"
+                is24Hour={true}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onChangeEnd}
+                style={Platform.OS === 'ios' ? styles.timePicker : undefined}
+              />
+            )}
+          </View>
+
+          <View style={styles.bottomContainer}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleSave}
+            >
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.secondary]}
+                style={styles.gradient}
+              >
+                <Text style={styles.buttonText}>
+                  {isFromProfile ? 'Kaydet' : 'Devam Et'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 };
@@ -226,6 +310,11 @@ const styles = StyleSheet.create({
     fontSize: SIZES.large,
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

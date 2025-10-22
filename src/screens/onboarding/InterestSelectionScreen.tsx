@@ -88,7 +88,13 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
       }
 
       if (existingUser) {
-        navigation.replace('MainTabs');
+        navigation.replace('Main', {
+          screen: 'Home',
+          params: {
+            userId: existingUser.id,
+            deviceId: deviceId
+          }
+        });
         return;
       }
 
@@ -217,7 +223,7 @@ const InterestSelectionScreen = ({ navigation, route }: any) => {
           {
             text: 'Tamam',
             onPress: () => {
-              navigation.navigate('MainTabs', {
+              navigation.navigate('Main', {
                 screen: 'Profile',
                 params: { refresh: Date.now() }
               });

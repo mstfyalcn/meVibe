@@ -40,11 +40,28 @@ const ProfileScreen = ({ navigation }: any) => {
   const [darkMode, setDarkMode] = useState(false);
   const [userInterests, setUserInterests] = useState<UserInterest[]>([]);
   const [loadingInterests, setLoadingInterests] = useState(true);
+  const [notificationTimes, setNotificationTimes] = useState<{
+    start: string;
+    end: string;
+  } | null>(null);
+  const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
     checkAuthStatus();
     loadUserInterests();
+    loadNotificationTimes();
+    loadUserName();
   }, []);
+
+  // Ekran her görünür olduğunda auth durumunu ve ismi kontrol et
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkAuthStatus();
+      loadUserName();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const loadUserInterests = async () => {
     try {
@@ -98,6 +115,52 @@ const ProfileScreen = ({ navigation }: any) => {
     }
   };
 
+  const loadNotificationTimes = async () => {
+    try {
+      const deviceId = await AsyncStorage.getItem('deviceId');
+      
+      const { data: user, error } = await supabase
+        .from('anonymous_users')
+        .select('notification_time_start, notification_time_end')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (error) throw error;
+
+      if (user) {
+        setNotificationTimes({
+          start: user.notification_time_start.slice(0, 5),
+          end: user.notification_time_end.slice(0, 5)
+        });
+      }
+    } catch (error) {
+      console.error('Bildirim zamanları yüklenirken hata:', error);
+    }
+  };
+
+  const loadUserName = async () => {
+    try {
+      const deviceId = await AsyncStorage.getItem('deviceId');
+      
+      const { data: user, error } = await supabase
+        .from('anonymous_users')
+        .select('name')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (error) throw error;
+
+      if (user && user.name) {
+        setUserName(user.name);
+      } else {
+        setUserName('Misafir Kullanıcı');
+      }
+    } catch (error) {
+      console.error('Kullanıcı adı yüklenirken hata:', error);
+      setUserName('Misafir Kullanıcı');
+    }
+  };
+
   const checkAuthStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setIsAuthenticated(!!user?.email);
@@ -108,17 +171,71 @@ const ProfileScreen = ({ navigation }: any) => {
   };
 
   const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setIsAuthenticated(false);
-    } catch (error) {
-      Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu.');
-    }
+    Alert.alert(
+      'Çıkış Yap',
+      'Çıkış yapmak istediğinizden emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Çıkış Yap',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.auth.signOut();
+              if (error) throw error;
+              setIsAuthenticated(false);
+            } catch (error) {
+              Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handlePremiumUpgrade = () => {
-    navigation.navigate('Premium');
+    Alert.alert(
+      'Premium Üyelik',
+      'Premium özellikler yakında eklenecek!',
+      [{ text: 'Tamam' }]
+    );
+  };
+
+  const handleResetApp = () => {
+    Alert.alert(
+      'Uygulamayı Sıfırla',
+      'Tüm veriler silinecek ve onboarding ekranına yönlendirileceksiniz. Emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sıfırla',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // AsyncStorage'daki tüm verileri sil
+              await AsyncStorage.clear();
+              
+              // Auth çıkışı yap (eğer giriş yapılmışsa)
+              await supabase.auth.signOut();
+              
+              // Onboarding ekranına yönlendir
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Onboarding' }],
+              });
+              
+              Alert.alert('Başarılı', 'Uygulama sıfırlandı.');
+            } catch (error) {
+              console.error('Sıfırlama hatası:', error);
+              Alert.alert('Hata', 'Uygulama sıfırlanırken bir hata oluştu.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleNotificationToggle = async (value: boolean) => {
@@ -145,9 +262,14 @@ const ProfileScreen = ({ navigation }: any) => {
     }
 
     return (
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Giriş Yap / Kayıt Ol</Text>
-      </TouchableOpacity>
+      <View>
+        <Text style={styles.sectionNote}>
+          İsteğe bağlı: Hesap oluşturarak verilerinizi cihazlar arasında senkronize edebilirsiniz.
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>Giriş Yap / Kayıt Ol (Opsiyonel)</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -184,6 +306,67 @@ const ProfileScreen = ({ navigation }: any) => {
     );
   };
 
+  const renderNotificationTimesSection = () => {
+    if (!notificationTimes) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      );
+    }
+
+    return (
+      <View>
+        
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => navigation.navigate('EditNotificationTime', {
+            isFromProfile: true
+          })}
+        >
+          <Text style={styles.editButtonText}>Bildirim Saatlerini Düzenle</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderSettingsSection = () => {
+    return (
+      <View>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('EditInterests', {
+            isFromProfile: true,
+            selectedInterests: userInterests.map(interest => interest.id)
+          })}
+        >
+          <View style={styles.settingsButtonContent}>
+            <View style={styles.settingsButtonLeft}>
+              <Text style={styles.settingsButtonIcon}>🎯</Text>
+              <Text style={styles.settingsButtonText}>İlgi Alanları</Text>
+            </View>
+            <Text style={styles.settingsButtonArrow}>›</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('EditNotificationTime', {
+            isFromProfile: true
+          })}
+        >
+          <View style={styles.settingsButtonContent}>
+            <View style={styles.settingsButtonLeft}>
+              <Text style={styles.settingsButtonIcon}>⏰</Text>
+              <Text style={styles.settingsButtonText}>Bildirim Saati</Text>
+            </View>
+            <Text style={styles.settingsButtonArrow}>›</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -191,11 +374,11 @@ const ProfileScreen = ({ navigation }: any) => {
           colors={[COLORS.primary, COLORS.secondary]}
           style={styles.headerGradient}
         >
-          <Text style={styles.headerTitle}>Profil</Text>
+          <Text style={styles.headerTitle}>{userName || 'Profil'}</Text>
           {isAuthenticated ? (
             <Text style={styles.headerSubtitle}>Premium Üye</Text>
           ) : (
-            <Text style={styles.headerSubtitle}>Misafir Kullanıcı</Text>
+            <Text style={styles.headerSubtitle}>Ücretsiz Kullanıcı</Text>
           )}
         </LinearGradient>
       </View>
@@ -206,8 +389,13 @@ const ProfileScreen = ({ navigation }: any) => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Hesap</Text>
-        {renderAuthSection()}
+        <Text style={styles.sectionTitle}>Bildirim Zamanları</Text>
+        {renderNotificationTimesSection()}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ayarlar</Text>
+        {renderSettingsSection()}
       </View>
 
       {!isPremium && (
@@ -230,27 +418,9 @@ const ProfileScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       )}
 
-
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ayarlar</Text>
-
-        <View style={styles.settingItem}>
-          <Text style={styles.settingLabel}>Bildirimler</Text>
-          <Switch
-            value={notificationsEnabled}
-            onValueChange={handleNotificationToggle}
-            trackColor={{ false: COLORS.gray, true: COLORS.primary }}
-          />
-        </View>
-
-        <View style={styles.settingItem}>
-          <Text style={styles.settingLabel}>Karanlık Mod</Text>
-          <Switch
-            value={darkMode}
-            onValueChange={setDarkMode}
-            trackColor={{ false: COLORS.gray, true: COLORS.primary }}
-          />
-        </View>
+        <Text style={styles.sectionTitle}>Hesap</Text>
+        {renderAuthSection()}
       </View>
 
       <View style={styles.section}>
@@ -264,6 +434,16 @@ const ProfileScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styles.linkButton}>
           <Text style={styles.linkText}>İletişim</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Geliştirici Araçları</Text>
+        <TouchableOpacity style={styles.button} onPress={handleResetApp}>
+          <Text style={styles.buttonText}>🔄 Uygulamayı Sıfırla</Text>
+        </TouchableOpacity>
+        <Text style={styles.sectionNote}>
+          Test için: Tüm veriler silinir ve onboarding ekranına dönersiniz.
+        </Text>
       </View>
     </ScrollView>
   );

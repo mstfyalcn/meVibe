@@ -10,6 +10,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -77,18 +79,19 @@ export const scheduleMotivationNotification = async () => {
 
     // İlgi alanlarına göre motivasyon sözü seç
     const interestIds = userInterests.map(ui => ui.interest_id);
-    const { data: quote, error: quoteError } = await supabase
+    // Rastgele bir motivasyon sözü seç
+    const { data: quotes, error: quoteError } = await supabase
       .from('motivation_quotes')
       .select('content, author')
-      .in('interest_area_id', interestIds)
-      .order('RANDOM()')
-      .limit(1)
-      .single();
+      .in('interest_area_id', interestIds);
 
-    if (quoteError || !quote) {
+    if (quoteError || !quotes || quotes.length === 0) {
       console.error('Motivasyon sözü alınamadı:', quoteError);
       return false;
     }
+
+    // JavaScript ile rastgele seç
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
 
     // Bildirim zamanını hesapla
     const [startHour, startMinute] = user.notification_time_start.split(':');
